@@ -23,8 +23,8 @@ The Tech we use to build this project are -
 <h3>Details Of Project</h3>
 This Project is divied into two type 
  1.User
+ <br>
  2.Admin
-<br>
 <h4>User</h4>
 In the <ul>User Side</ul> They can redister themself by login page and if they  already have so they can login directly
 <br>
