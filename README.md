@@ -16,7 +16,6 @@ The Tech we use to build this project are -
   4.Database - MySQL  
 <br>
 <h3>Mandatory Requirements to run this whole Project by using Visual Studio Code</h3>
-<br>
 1. Python Should be install in your PC/Laptop
 <br>
 2.For This Flask should be install to run the program and handle the flask libraries 
