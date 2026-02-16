@@ -19,6 +19,14 @@ The Tech we use to build this project are -
 1. Python Should be install in your PC/Laptop
 <br>
 2.For This Flask should be install to run the program and handle the flask libraries.
+<br>
+3.To access the project you should have to copy the code of app.py, this is the most important part of this project without this the project can't even run.
+<br>
+4. All the backend of user and login section are present in app.py
+<br>
+5.For the user part Copy the code from User folder under Template folder and for admin part copy the code from admin folder.
+<br>
+6.All the images, CSS, Javascript codes are present in static 
 <h3>Details Of Project</h3>
 This Project is divied into two type 
 <br>
