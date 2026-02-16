@@ -26,7 +26,10 @@ The Tech we use to build this project are -
 <br>
 5.For the user part Copy the code from User folder under Template folder and for admin part copy the code from admin folder.
 <br>
-6.All the images, CSS, Javascript codes are present in static 
+6.All the images, CSS, Javascript codes are present in static folder.
+<br>
+7. Because the project is using jinja template it must needed to present the base.html file while running.
+
 <h3>Details Of Project</h3>
 This Project is divied into two type 
 <br>
@@ -67,6 +70,10 @@ Over there 2 buttons are present -
 <br>
 2.Process - To process into Payment part
 <h4>Payement Part</h4>
+After appointment the user will have there payment page where user have choise to use the same email that is user for appointment or user another email for receiving payment confirmation slips.
+after confirming email there is a pay now button ones user click on that the payment is done and payment successfull page will be there.
+<br>
+Most important part is for this project we are using DEMO payment part there is no real world payment integration.
 
   
   
