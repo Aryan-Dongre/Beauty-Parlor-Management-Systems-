@@ -54,7 +54,7 @@ In the service part user have server services divided into 4 categories -
 <br>
 4.Bridal
 <br>
-Under the Categories there are many services like - Hair Cur, Makeup ,Spa, etc.
+Under the Categories there are many services like - Hair Cut, Makeup ,Spa, etc.
 <br>
 User can chosse either one or many services at a time 
 <h4>Appintment Part</h4>
@@ -73,7 +73,10 @@ Over there 2 buttons are present -
 After appointment the user will have there payment page where user have choise to use the same email that is user for appointment or user another email for receiving payment confirmation slips.
 after confirming email there is a pay now button ones user click on that the payment is done and payment successfull page will be there.
 <br>
-Most important part is for this project we are using DEMO payment part there is no real world payment integration.
-
+For this project we are using DEMO payment part there is no real world payment integration.
+<h4>My Appointment</h4>
+In my My Appointment section user can see there booked appointment with full details that involve - Name, Phone, Email, Service, Price, Date,Time, Appointment and Payment Status.
+<br>
+Along with this there is one book again button to book the same service or they can even change it 
   
   
