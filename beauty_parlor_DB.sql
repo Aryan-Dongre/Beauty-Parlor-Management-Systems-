@@ -328,6 +328,7 @@ CREATE TABLE booking_service (
     FOREIGN KEY (service_id) REFERENCES service(id)
 ) ENGINE=InnoDB;
 
+/*Seat Table*/
 
 CREATE TABLE seat (
              id int AUTO_INCREMENT PRIMARY KEY,
@@ -345,7 +346,6 @@ UPDATE seat SET service_type_id = 1 WHERE seat_type = 'NORMAL';
 UPDATE seat SET service_type_id = 2 WHERE seat_type = 'GROOM';
 UPDATE seat SET service_type_id = 3 WHERE seat_type = 'BRIDAL';
 
-
 ALTER TABLE seat 
 MODIFY service_type_id INT NOT NULL;
               
@@ -359,7 +359,14 @@ ALTER TABLE seat
 DROP COLUMN seat_type;
 
 SET SQL_SAFE_UPDATES = 1;
-              
+
+INSERT INTO seat (seat_name, service_type_id, status)
+VALUES 
+('Chair 1', 1, 'active'),
+('Chair 2', 1, 'active'),
+('Chair 3', 1, 'active'),
+('Chair 4', 1, 'active'),
+('Chair 5', 1, 'active');              
 
 -- 14. Payment
 CREATE TABLE payment (
