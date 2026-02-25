@@ -479,6 +479,24 @@ def booking_summary():
     cur = mysql.connection.cursor(DictCursor)
 
     try:
+
+         # Total active slot
+        cur.execute("SELECT COUNT(*) AS total_slot FROM seat WHERE status ='active'")
+        total_seats = cur.fetchone()["total_slot"]
+
+        # already booked slot 
+        cur.execute("""
+                    SELECT COUNT(*) AS booked
+                    FROM appointment 
+                    WHERE appointment_date = %s
+                    AND appointment_time = %s
+                    """, (booking_date, booking_time))
+        
+        booked_seats = cur.fetchone()["booked"]
+        if booked_seats >= total_seats:
+            flash("Selected slot is fully booked. Please choose another time.", "danger")
+            return redirect(url_for("appointment"))
+
         # -------- GET CLIENT & CONTACT --------
         cur.execute("""
             SELECT id, contact_id
@@ -585,8 +603,6 @@ def booking_summary():
 
     finally:
         cur.close()
-
-
 #==========================================Booking Summary Part over======================================================================#
 
 #===================================================Payment Part==============================================================================#
@@ -1087,3 +1103,4 @@ def submit_review():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
