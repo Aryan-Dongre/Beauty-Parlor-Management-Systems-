@@ -24,6 +24,21 @@
 
 <body>
 
+      {% with messages = get_flashed_messages(with_categories=true) %}
+       {% if messages %}
+          <div id="toast-container">
+              {% for category, message in messages %}
+                 <div class="custom-toast toast-{{ category }}">
+                      <div class="toast-content">
+                         <i class="fa-solid fa-circle-check toast-icon"></i>
+                         <span>{{ message }}</span>
+                      </div>
+                 </div>
+               {% endfor%}  
+          </div>
+        {% endfor %}
+        {% endwith %}  
+
     <header>
         <nav class="navbar navbar-expand-lg navbar-dark bg-black px-4">
 
@@ -181,8 +196,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     {% block page_js %}{% endblock %}
-
-
 
 </body>
 
