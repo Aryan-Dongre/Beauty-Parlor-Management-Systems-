@@ -399,7 +399,7 @@ def appointment():
     """, (user_id,))
     user = cur.fetchone()
 
-    # Services from SESSION (THIS IS CORRECT FOR YOU)
+    # Services from SESSION 
     selected_service_ids = session.get("selected_services", [])
     service_list = []
     total_amount = 0
@@ -458,9 +458,6 @@ from datetime import date
 @app.route("/booking-summary", methods=["POST"])
 @login_required
 def booking_summary():
-
-    print("======== HIT BOOKING SUMMARY ========")
-    print("FORM DATA:", request.form)
 
     registration_id = session["user_id"]
 
@@ -697,17 +694,50 @@ def process_payment(booking_id):
             WHERE id = %s
         """, (booking_id,))
 
-        # -------- 7. CREATE APPOINTMENT (IDEMPOTENT) --------
+        # -------- 7. CREATE APPOINTMENT + Assign Seat --------
+        
+          # First fetch date and time 
         cur.execute("""
-            INSERT INTO appointment
-            (booking_id, appointment_date, appointment_time, status, payment_id)
-            SELECT id, booking_date, booking_time, 'CONFIRMED', %s
-            FROM booking
-            WHERE id = %s
-              AND NOT EXISTS (
-                  SELECT 1 FROM appointment WHERE booking_id = %s
-              )
-        """, (payment_id, booking_id, booking_id))
+            SELECT booking_date, booking_time
+                    FROM booking
+                    WHERE id =%s
+                    """, (booking_id,))
+        booking_data = cur.fetchone()
+
+        booking_date =booking_data["booking_date"]
+        booking_time =booking_data["booking_time"]
+
+
+        #lock available seat
+        cur.execute("""
+            SELECT s.id
+            FROM seat s
+            WHERE s.status ='active'
+            AND s.id NOT IN(
+                SELECT a.seat_id
+                    FROM appointment a
+                    WHERE a.appointment_date =%s
+                    AND a.appointment_time =%s
+                       )
+                    LIMIT 1
+                    FOR UPDATE
+                         """, (booking_date, booking_time))
+        
+        seat =cur.fetchone()
+
+        if not seat:
+            mysql.connection.rollback()
+            flash("Selected slot is fully booked. Payment cancelled.", "danger")
+            return redirect(url_for("appointment"))
+        
+        seat_id = seat["id"]
+
+        # appointment with seat
+        cur.execute("""
+                   INSERT INTO appointment 
+                    (booking_id, appointment_date, appointment_time, status, payment_id, seat_id)
+                    VALUES ( %s, %s, %s, 'CONFIRMED', %s, %s) 
+                    """, (booking_id, booking_date, booking_time, payment_id, seat_id))
 
         mysql.connection.commit()
 
