@@ -80,6 +80,9 @@ def add_header(response):
 #=============Home==============#
 @app.route('/')
 def home():
+
+    if session.pop("appointment_popup", None):
+        flash(" 🎉 Your appointment is confirmed!", "success")
     return render_template('user/home.html')
 
 #============Home over============#
@@ -425,9 +428,6 @@ def appointment():
         total_amount=total_amount
     )
 
-
-
-
 #---- Remove button code---# 
 
 @app.route("/remove_service",methods=["POST"])
@@ -450,9 +450,6 @@ def remove_servce():
 
 
 #===========================================================Booking Summary Part==========================================================================#
-
-from datetime import date
-
 from datetime import date
 
 @app.route("/booking-summary", methods=["POST"])
@@ -560,7 +557,7 @@ def booking_summary():
                 payment_status
             )
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'PENDING','PENDING')
-        """, (
+          """, (
             client_id,
             full_name,
             email,
@@ -573,7 +570,7 @@ def booking_summary():
 
         booking_id = cur.lastrowid
 
-        # -------- INSERT BOOKING SERVICES (LINK ONLY) --------
+         # -------- INSERT BOOKING SERVICES (LINK ONLY) --------
         for s in services:
             cur.execute("""
                 INSERT INTO booking_service (booking_id, service_id)
@@ -603,9 +600,10 @@ def booking_summary():
 
     finally:
         cur.close()
-#==========================================Booking Summary Part over======================================================================#
 
-#===================================================Payment Part==============================================================================#
+#====================Booking Summary Part over=========================================#
+
+#==========================Payment Part==================================#
 
 @app.route("/payment/<int:booking_id>")
 @login_required
@@ -759,7 +757,6 @@ def process_payment(booking_id):
 
     except Exception as e:
         mysql.connection.rollback()
-        print("❌ PAYMENT ERROR:", e)
         flash("Payment failed. Please try again.", "danger")
         return redirect(url_for("payment_page", booking_id=booking_id))
 
@@ -804,6 +801,8 @@ def payment_success(booking_id):
     session.pop("booking_id", None)
     session.pop("booking_data", None)
     session.pop("booking_services", None)
+
+    session["appointment_popup"] = True
 
     return render_template("user/payment_success.html", payment=payment)
 
@@ -1103,4 +1102,3 @@ def submit_review():
 
 if __name__ == "__main__":
     app.run(debug=True)
-
