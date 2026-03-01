@@ -7,7 +7,12 @@ from MySQLdb.cursors import DictCursor
 from admin import admin_bp
 from extensions import mysql
 from flask import make_response
-
+from config import Config
+from extensions import mail
+from flask_mail import Mail, Message
+import os
+from services.email_service import EmailService
+import uuid
 
 
 
@@ -42,8 +47,6 @@ def format_duration(duration):
 
 #==================================================================#
 
-
-
 app = Flask(__name__)
 app.secret_key="super_secret_key"  #imp for session and flash
 # MySQL Configuration
@@ -53,7 +56,16 @@ app.config['MYSQL_PASSWORD'] ='Aryan@08'
 app.config['MYSQL_DB'] = 'Beauty_Parlor'
 app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
 
+# Email Service Setup
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] =587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv("MAIL_USERNAME")
+
 mysql =MySQL(app)
+mail.init_app(app)
 
 app.register_blueprint(admin_bp)
 
@@ -383,9 +395,9 @@ def set_selected_services():
     return {"status": "ok"}
 
 
- #======================================================== Selected Service over===============================================================================#
+ #=================== Selected Service over=======#
 
-#==========================================================Appointment part====================================================================================#
+#==============Appointment part========================#
 
 @app.route('/appointment', methods=["GET"])
 @login_required
@@ -446,10 +458,10 @@ def remove_servce():
 
 #---- Remove button code over---# 
 
-#-=========================================================Appointment part over=========================================================================#
+#-=====================Appointment part over=========================================================================#
 
 
-#===========================================================Booking Summary Part==========================================================================#
+#================Booking Summary Part==========================================================================#
 from datetime import date
 
 @app.route("/booking-summary", methods=["POST"])
@@ -605,6 +617,7 @@ def booking_summary():
 
 #==========================Payment Part==================================#
 
+
 @app.route("/payment/<int:booking_id>")
 @login_required
 def payment_page(booking_id):
@@ -636,7 +649,7 @@ def payment_page(booking_id):
         booking=booking   
     )
 
- ####################################################################################################################################       
+ ######################################################       
 
 @app.route("/process-payment/<int:booking_id>", methods=["POST"])
 @login_required
@@ -650,92 +663,66 @@ def process_payment(booking_id):
     cur = mysql.connection.cursor(DictCursor)
 
     try:
-        # -------- 1. FETCH BOOKING (SINGLE SOURCE OF TRUTH) --------
+        # -------- 1. Lock Booking row 
         cur.execute("""
-            SELECT id, client_id, client_email, total_amount, payment_status
-            FROM booking
-            WHERE id = %s
-        """, (booking_id,))
-        booking = cur.fetchone()
+            SELECT id, client_id, total_amount, payment_status,
+                    booking_date, booking_time
+                    FROM booking
+                    WHERE id= %s
+                    FOR UPDATE
+                    """, (booking_id,))
+        booking =cur.fetchone()
 
         if not booking:
             flash("Invalid booking.", "danger")
             return redirect(url_for("home"))
-
-        # -------- 2. OWNERSHIP CHECK --------
-        cur.execute("""
-            SELECT 1
-            FROM booking b
-            JOIN client c ON b.client_id = c.id
-            WHERE b.id = %s
-              AND c.registration_id = %s
-        """, (booking_id, user_id))
-
-        owner = cur.fetchone()
-        if not owner:
-            flash("Unauthorized payment attempt.", "danger")
-            return redirect(url_for("home"))
-
-        # -------- 3. PREVENT DOUBLE PAYMENT --------
-        if booking["payment_status"] == "PAID":
-            flash("This booking is already paid.", "warning")
-            return redirect(url_for("payment_success", booking_id=booking_id))
-
-        # -------- 4. CREATE TRANSACTION ID --------
-        transaction_id = f"TXN{booking_id}{user_id}"
-
-        # -------- 5. INSERT PAYMENT (NO JOINS) --------
-        cur.execute("""
-            INSERT INTO payment
-            (booking_id, amount, payment_email, payment_method, payment_status, transaction_id)
-            VALUES (%s,%s,%s,%s,'SUCCESS',%s)
-        """, (
-            booking_id,
-            booking["total_amount"],
-            payment_email,
-            payment_method,
-            transaction_id
-           
-        ))
-
-        payment_id = cur.lastrowid
-
-        # -------- 6. UPDATE BOOKING STATUS --------
-        cur.execute("""
-            UPDATE booking
-            SET payment_status = 'PAID',
-                status = 'PAID'
-            WHERE id = %s
-        """, (booking_id,))
-
-        # -------- 7. CREATE APPOINTMENT + Assign Seat --------
         
-          # First fetch date and time 
+        # 2. Prevent Double Payment
+        if booking["payment_status"] == "PAID":
+            flash("This booking is already paid.", "info")
+            mysql.connection.commit()
+            return redirect(url_for("home"))
+        
+        # 3. Generate Safe Transaction Id
+        transaction_id = f"TNXA-{uuid.uuid4().hex[:12].upper()}"
+
+        # 4. Insert Payment 
         cur.execute("""
-            SELECT booking_date, booking_time
-                    FROM booking
-                    WHERE id =%s
+            INSERT INTO payment 
+                    (booking_id,amount, payment_method,payment_email, payment_status, transaction_id)
+                    VALUES (%s, %s, %s, %s,  'SUCCESS', %s)
+                    """, (
+                        booking_id,
+                        booking["total_amount"],
+                        request.form.get("payment_method"),
+                        payment_email,
+                        transaction_id
+                    )) 
+        
+        payment_id =cur.lastrowid
+
+          #5. Update Booking Status 
+        cur.execute("""
+                    UPDATE booking
+                    SET payment_status = 'PAID',
+                           status ='PAID'
+                    WHERE id = %s
                     """, (booking_id,))
-        booking_data = cur.fetchone()
-
-        booking_date =booking_data["booking_date"]
-        booking_time =booking_data["booking_time"]
-
-
-        #lock available seat
+        
+        # 6. Lock Available Seat
         cur.execute("""
-            SELECT s.id
-            FROM seat s
-            WHERE s.status ='active'
-            AND s.id NOT IN(
-                SELECT a.seat_id
-                    FROM appointment a
-                    WHERE a.appointment_date =%s
-                    AND a.appointment_time =%s
-                       )
+                    SELECT s.id
+                    FROM seat s
+                    WHERE s.status = 'active'
+                    AND s.id NOT IN (
+                        SELECT a.seat_id
+                        FROM appointment a
+                        WHERE a.appointment_date = %s
+                        AND a.appointment_time = %s
+                    )
                     LIMIT 1
                     FOR UPDATE
-                         """, (booking_date, booking_time))
+                    """, (booking["booking_date"], booking["booking_time"]))
         
         seat =cur.fetchone()
 
@@ -743,32 +730,89 @@ def process_payment(booking_id):
             mysql.connection.rollback()
             flash("Selected slot is fully booked. Payment cancelled.", "danger")
             return redirect(url_for("appointment"))
-        
+
         seat_id = seat["id"]
 
-        # appointment with seat
-        cur.execute("""
-                   INSERT INTO appointment 
-                    (booking_id, appointment_date, appointment_time, status, payment_id, seat_id)
-                    VALUES ( %s, %s, %s, 'CONFIRMED', %s, %s) 
-                    """, (booking_id, booking_date, booking_time, payment_id, seat_id))
 
+        # 7. Create Appointment
+        cur.execute("""
+                INSERT INTO appointment
+                (booking_id, appointment_date, appointment_time, status, payment_id, seat_id)
+                VALUES (%s, %s, %s, 'CONFIRMED', %s, %s)
+                """, (
+                    booking_id,
+                    booking["booking_date"],
+                    booking["booking_time"],
+                    payment_id,
+                    seat_id
+                ))   
+    # 8. Commit Transaction
         mysql.connection.commit()
 
     except Exception as e:
         mysql.connection.rollback()
+        print("======== ERROR START ========")
+        print(e)
+        print("======== ERROR END ========")
         flash("Payment failed. Please try again.", "danger")
         return redirect(url_for("payment_page", booking_id=booking_id))
-
+    
     finally:
         cur.close()
 
-    # -------- 8. CLEAN SESSION --------
-    session.pop("booking_id", None)
+    try :
+        send_confirmation_email(booking_id)
+        print("CALLING EMAIL...")
+    except Exception as e:
+        print("Email failed but payment succeeded:", e)
 
     flash("Payment successful!", "success")
     return redirect(url_for("payment_success", booking_id=booking_id))
 
+
+
+
+
+def send_confirmation_email(booking_id):
+
+    cur = mysql.connection.cursor(DictCursor)
+
+    print("EMAIL FUNCTION CALLED")
+
+    cur.execute("""
+        SELECT
+                a.appointment_date,
+                a.appointment_time,
+                a.seat_id,
+                b.client_name,
+                b.client_email,
+                GROUP_CONCAT(s.name SEPARATOR ' , ') AS services
+                FROM appointment a
+                JOIN booking b ON a.booking_id =b.id
+                JOIN booking_service bs ON b.id = bs.booking_id
+                JOIN service s ON bs.service_id = s.id
+                WHERE a.booking_id = %s
+                GROUP BY a.id
+                """, (booking_id,))
+    appointment_data = cur.fetchone()
+    cur.close()
+
+
+    if not appointment_data:
+        print("No appointment Data found for email.")
+        return
+    
+    EmailService.send_email(
+        subject="Appointment Confirmation - Beauty Parlor",
+        recipients=[appointment_data["client_email"]],
+        template_name="appointment_confirmation.html",
+        user_name=appointment_data["client_name"],
+        appointment_date=appointment_data["appointment_date"],
+        appointment_time=appointment_data["appointment_time"],
+        booking_id=booking_id,
+        service_name=appointment_data["services"],
+        seat_id=f"Seat-{appointment_data['seat_id']}"
+    )
 
 ################################################################################################
 
@@ -945,9 +989,9 @@ def appointment_history():
         "user/appointment_history.html",
         bookings=bookings
     )
-#=================================================================== History Part Over ========================================================================#
+#================================= History Part Over ========================================================================#
 
-#=================================================================== Book Again Part =========================================================================#
+#============================= Book Again Part ==============#
 
 @app.route("/book-again/<int:booking_id>")
 @login_required
@@ -993,11 +1037,11 @@ def book_again(booking_id):
     #  Redirect to appointment page
     return redirect(url_for("appointment"))
 
-#============================================================= Book Again Part Over ===========================================================================#
+#=========================== Book Again Part Over =============================#
    
 
 
-#================================================================ Products ===================================================================================#
+#================================ Products ==========================#
 
 @app.route('/products')
 def products():
@@ -1014,9 +1058,9 @@ def products():
 
     
     return render_template('products/products.html', products=products)
-#===================================================================== Products over ==========================================================================#
+#===================================== Products over ===================================#
 
-#===================================================================== About and Contact ======================================================================#
+#===================================== About and Contact ===============================#
 @app.route('/about')
 def about():
     return render_template('user/about.html')
@@ -1098,7 +1142,7 @@ def submit_review():
 #===================================================================== Review Part Over ======================================================================#
 
 
-
+#============================== TEST EMAIL ==============================#  
 
 if __name__ == "__main__":
     app.run(debug=True)
