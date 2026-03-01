@@ -36,7 +36,7 @@
                  </div>
                {% endfor%}  
           </div>
-        {% endfor %}
+        {% endif %}
         {% endwith %}  
 
     <header>
@@ -196,6 +196,23 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     {% block page_js %}{% endblock %}
+
+    <script>
+document.addEventListener("DOMContentLoaded", function () {
+    const toastContainer = document.getElementById("toast-container");
+
+    if (toastContainer) {
+        setTimeout(function () {
+            toastContainer.style.transition = "opacity 0.5s ease";
+            toastContainer.style.opacity = "0";
+
+            setTimeout(function () {
+                toastContainer.remove();
+            }, 500);
+        }, 5000); // 5 seconds
+    }
+});
+</script>
 
 </body>
 
